@@ -36,6 +36,17 @@ make uefi       # boot with OVMF (UEFI), screenshot in build/uefi.ppm
 
 For `make uefi` you need OVMF: included with Homebrew QEMU; `sudo apt install ovmf` on Debian / Ubuntu / WSL2; `edk2-ovmf` on Fedora / Arch; or pass `OVMF=/path/to/OVMF_CODE.fd`.
 
+## A 512-byte boot sector (E04)
+
+```
+make listing    # offsets and machine code of boot/boot.asm
+make disasm     # disassemble build/boot.bin at 0x7C00
+make size       # 512 bytes, ending 55 aa
+make hello      # boot it: Hello from ISOS!
+make screen     # QEMU screenshot in build/hello.ppm
+make noorg      # what breaks without org 0x7C00
+```
+
 ## Run
 
 ```

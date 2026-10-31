@@ -78,7 +78,46 @@ uefi: build/boot.bin
 	@(sleep $(SECS); printf 'screendump build/uefi.ppm\nquit\n') | $(QEMU) -display none -monitor stdio -drive if=pflash,format=raw,readonly=on,file=$(OVMF) -drive format=raw,file=build/boot.bin -net none 2>/dev/null >/dev/null
 	@echo "firmware: $(OVMF)"; echo "screen saved: build/uefi.ppm"
 
+# E04: a 512-byte boot sector in real mode, line by line
+NDISASM ?= ndisasm
+
+# The listing: every line of boot.asm with its offset and machine code
+listing: boot/boot.asm
+	@mkdir -p build
+	@$(NASM) -f bin boot/boot.asm -l build/boot.lst -o build/boot.bin
+	@grep -E '^ +[0-9]+ [0-9A-F]{8} ' build/boot.lst | grep -v 'rep ' | cut -c 8-
+
+# The same bytes read back as instructions, at the address the BIOS uses
+disasm: build/boot.bin
+	@$(NDISASM) -o 0x7c00 build/boot.bin | head -n 13
+
+# Size check: exactly 512 bytes, ending with 55 AA
+size: build/boot.bin
+	@wc -c build/boot.bin
+	@od -A d -t x1 -j 510 build/boot.bin | head -n 1
+
+# Boot it and show exactly what arrived on the serial line
+hello: build/boot.bin
+	@$(QEMU) -display none -drive format=raw,file=build/boot.bin -serial stdio 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+	@echo
+
+# The screen, saved by QEMU's monitor (build/hello.ppm)
+screen: build/boot.bin
+	@(sleep $(SECS); printf 'screendump build/hello.ppm\nquit\n') | $(QEMU) -display none -monitor stdio -drive format=raw,file=build/boot.bin 2>/dev/null >/dev/null
+	@echo "screen saved: build/hello.ppm"
+
+# A classic bug: the same code without "org 0x7C00"
+build/noorg.bin: boot/boot.asm
+	@mkdir -p build
+	@sed '/^org/d' boot/boot.asm > build/noorg.asm
+	@$(NASM) -f bin build/noorg.asm -o $@
+
+noorg: build/noorg.bin
+	@$(NDISASM) build/noorg.bin | sed -n 3p
+	@$(QEMU) -display none -drive format=raw,file=build/noorg.bin -serial file:build/noorg.out 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+	@od -A n -c build/noorg.out
+
 clean:
 	rm -rf build
 
-.PHONY: run run-nographic tools toolcheck docker-build docker-shell poweron firmware memdump nosig uefi clean
+.PHONY: run run-nographic tools toolcheck docker-build docker-shell poweron firmware memdump nosig uefi listing disasm size hello screen noorg clean
