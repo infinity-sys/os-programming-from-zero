@@ -1,6 +1,6 @@
 # E04: A 512-Byte Boot Sector in Real Mode
 
-Video: VIDEO_LINK_PLACEHOLDER
+Video: https://youtu.be/xzjxO2LqA68
 
 ## E03 solution
 1. `dw 0xAA55` is stored little-endian: byte 510 is `0x55`, byte 511 is `0xAA`.
