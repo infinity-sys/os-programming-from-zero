@@ -24,6 +24,18 @@ make toolcheck   # cross-compiles tests/hello.c to a 64-bit x86 ELF
 
 Any QEMU 8+, NASM 2.15+ and LLVM clang/lld 17+ works. On macOS the Makefile uses Homebrew's LLVM clang automatically (Apple's clang has no lld); override with `make CC=/path/to/clang`.
 
+## The boot process (E03)
+
+```
+make poweron    # registers at power on (the reset vector)
+make firmware   # the BIOS (SeaBIOS) log
+make memdump    # RAM at 0x7C00 next to build/boot.bin
+make nosig      # a sector without 55 AA is refused
+make uefi       # boot with OVMF (UEFI), screenshot in build/uefi.ppm
+```
+
+For `make uefi` you need OVMF: included with Homebrew QEMU; `sudo apt install ovmf` on Debian / Ubuntu / WSL2; `edk2-ovmf` on Fedora / Arch; or pass `OVMF=/path/to/OVMF_CODE.fd`.
+
 ## Run
 
 ```
