@@ -1,6 +1,6 @@
 # E05: Real-Mode Segments and BIOS Interrupts, by Hand
 
-Video: VIDEO_LINK_PLACEHOLDER
+Video: https://youtu.be/JXSalPMUgNA
 
 ## E04 solution
 ```nasm
