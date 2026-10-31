@@ -1,6 +1,6 @@
 # E03: What Happens When You Press Power? Firmware, BIOS, UEFI and Bootloaders
 
-Video: VIDEO_LINK_PLACEHOLDER
+Video: https://youtu.be/lk6Q7CIJtFg
 
 ## E02 solution
 `make tools > versions.txt`, then `cat versions.txt`. Real results (31 Oct 2026):
