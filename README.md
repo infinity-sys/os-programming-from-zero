@@ -8,12 +8,21 @@ Every episode has a folder in `episodes/` and a git tag (`e01`, `e02`, …), so 
 
 | Platform | Install |
 |---|---|
-| macOS | `brew install qemu nasm llvm lld make` |
-| Windows | `wsl --install -d Ubuntu`, then follow the Linux (Ubuntu) line inside WSL2 |
+| macOS | `brew install qemu nasm llvm lld` (make is already there) |
+| Windows | PowerShell (admin): `wsl --install -d Ubuntu`, restart, open Ubuntu, then the Debian / Ubuntu line inside it. Clone into your Linux home (`~`), not `C:` |
 | Linux: Ubuntu / Debian | `sudo apt install qemu-system-x86 nasm clang lld make` |
 | Linux: Fedora | `sudo dnf install qemu-system-x86 nasm clang lld make` |
 | Linux: Arch | `sudo pacman -S qemu-full nasm clang lld make` |
-| Docker | a ready toolchain image arrives in episode 2 |
+| Docker | `make docker-build`, then `make docker-shell` (Ubuntu 24.04 image, `docker/Dockerfile`) |
+
+## Check your workbench (E02)
+
+```
+make tools       # prints every tool's version (save it: make tools > versions.txt)
+make toolcheck   # cross-compiles tests/hello.c to a 64-bit x86 ELF
+```
+
+Any QEMU 8+, NASM 2.15+ and LLVM clang/lld 17+ works. On macOS the Makefile uses Homebrew's LLVM clang automatically (Apple's clang has no lld); override with `make CC=/path/to/clang`.
 
 ## Run
 
