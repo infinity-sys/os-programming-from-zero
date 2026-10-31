@@ -1,6 +1,6 @@
 # E01: Let's Build an Operating System (Course Roadmap)
 
-Video: VIDEO_LINK_PLACEHOLDER
+Video: https://youtu.be/RasSyFEOA8s
 
 - `boot.asm`: a 512-byte boot sector that prints "Hello from ISOS!" on screen (BIOS int 0x10) and on COM1 (0x3F8).
 - `run.sh`: build and boot it.
