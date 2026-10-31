@@ -1,6 +1,6 @@
 # E02: Your OS Workbench (QEMU, clang, NASM and make on Mac, Windows (WSL2) and Linux)
 
-Video: VIDEO_LINK_PLACEHOLDER
+Video: https://youtu.be/U9drbDPSVOc
 
 ## E01 solution (`ex1_solution/boot.asm`)
 padding = 510 - 25 - (length + 3). "Hi, I am Sara!" = 14 characters, 17 bytes, so the padding is 468 bytes (0x1D4).
