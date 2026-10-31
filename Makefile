@@ -117,7 +117,40 @@ noorg: build/noorg.bin
 	@$(QEMU) -display none -drive format=raw,file=build/noorg.bin -serial file:build/noorg.out 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
 	@od -A n -c build/noorg.out
 
+# ---- E05: segments and BIOS interrupts ----
+SEG ?= 0x07C0
+OFF ?= 0x0000
+KEYS ?= h i spc i s o s ret
+
+# physical = segment x 16 + offset
+addr:
+	@printf '%s:%s = %s x 16 + %s = 0x%05X\n' $(SEG) $(OFF) $(SEG) $(OFF) $$(( $(SEG) * 16 + $(OFF) ))
+
+build/segs.bin: boot/segs.asm
+	mkdir -p build
+	$(NASM) -f bin $< -o $@
+
+# the same idea with org 0 and DS = 0x07C0
+segs: build/segs.bin
+	@$(NDISASM) -o 0 build/segs.bin | head -n 4
+	@$(QEMU) -display none -drive format=raw,file=build/segs.bin -serial stdio 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+	@echo
+
+# the interrupt vector table: 4 bytes per vector (offset, segment) from address 0
+ivt: build/boot.bin
+	@(sleep 2; printf 'xp /2xh 0x40\nxp /2xh 0x58\n'; sleep 1; printf 'quit\n') | $(QEMU) -display none -monitor stdio -drive format=raw,file=build/boot.bin 2>/dev/null | grep -ao '0*\(40\|58\): [0-9a-fx ]*' | tr -d '\r' | awk '!seen[$$0]++'
+
+build/keys.bin: boot/keys.asm
+	mkdir -p build
+	$(NASM) -f bin $< -o $@
+
+# boot keys.bin and type for you through the QEMU monitor (sendkey)
+keys: build/keys.bin
+	@(sleep 2; for k in $(KEYS); do printf 'sendkey %s\n' $$k; sleep 0.3; done; sleep 1; printf 'quit\n') | $(QEMU) -display none -monitor stdio -drive format=raw,file=build/keys.bin -serial file:build/keys.out 2>/dev/null >/dev/null
+	@cat build/keys.out
+
+
 clean:
 	rm -rf build
 
-.PHONY: run run-nographic tools toolcheck docker-build docker-shell poweron firmware memdump nosig uefi listing disasm size hello screen noorg clean
+.PHONY: run run-nographic tools toolcheck docker-build docker-shell poweron firmware memdump nosig uefi listing disasm size hello screen noorg clean addr segs ivt keys

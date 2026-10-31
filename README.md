@@ -47,6 +47,15 @@ make screen     # QEMU screenshot in build/hello.ppm
 make noorg      # what breaks without org 0x7C00
 ```
 
+## Segments and BIOS interrupts (E05)
+
+```
+make addr       # SEG:OFF to a physical address (SEG=... OFF=...)
+make segs       # org 0 and a far jump to 0x07C0
+make ivt        # int 0x10 and int 0x16 vectors from memory
+make keys       # read the keyboard with int 0x16
+```
+
 ## Run
 
 ```
