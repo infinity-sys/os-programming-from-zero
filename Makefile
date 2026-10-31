@@ -150,7 +150,35 @@ keys: build/keys.bin
 	@cat build/keys.out
 
 
+# ---- E06: into protected and long mode ----
+build/%.bin: boot/%.asm
+	@mkdir -p build
+	@$(NASM) -f bin $< -l build/$*.lst -o $@
+
+# the E05 puzzle, for real: FFFF:0510 with A20 on, then off (port 0x92), then on again
+a20: build/a20.bin
+	@$(QEMU) -display none -drive format=raw,file=build/a20.bin -serial stdio 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+
+# 16-bit real mode -> 32-bit protected mode (GDT, CR0.PE, far jump), then VGA memory at 0xB8000
+pm: build/pm.bin
+	@$(QEMU) -display none -drive format=raw,file=build/pm.bin -serial stdio 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+	@echo
+
+# real mode -> 64-bit long mode (page tables, PAE, EFER.LME, CR0.PG), in one sector
+lm: build/lm.bin
+	@$(QEMU) -display none -drive format=raw,file=build/lm.bin -serial stdio 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+	@echo
+
+# which mode is the CPU in? CS and the control registers, read from the QEMU monitor
+modes: build/boot.bin build/pm.bin build/lm.bin
+	@for b in boot pm lm; do echo "== $$b.bin"; (sleep 2; printf 'info registers\n'; sleep 0.5; printf 'quit\n') | $(QEMU) -display none -monitor stdio -drive format=raw,file=build/$$b.bin 2>/dev/null | tr -d '\r' | grep -E '^(CS |CR0|EFER)' | sed -E 's/ CR2=[0-9a-f]+//'; done
+
+# bytes of code in each boot sector, out of the 510 we can use
+room:
+	@mkdir -p build
+	@for b in boot segs keys a20 pm lm; do $(NASM) -f bin boot/$$b.asm -l build/$$b.lst -o build/$$b.bin; n=$$(grep 'times 510' build/$$b.lst | awk '{print $$2}'); printf '%-5s %3d of 510 bytes used\n' $$b $$((0x$$n)); done
+
 clean:
 	rm -rf build
 
-.PHONY: run run-nographic tools toolcheck docker-build docker-shell poweron firmware memdump nosig uefi listing disasm size hello screen noorg clean addr segs ivt keys
+.PHONY: run run-nographic tools toolcheck docker-build docker-shell poweron firmware memdump nosig uefi listing disasm size hello screen noorg clean addr segs ivt keys a20 pm lm modes room

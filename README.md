@@ -56,6 +56,16 @@ make ivt        # int 0x10 and int 0x16 vectors from memory
 make keys       # read the keyboard with int 0x16
 ```
 
+## Protected and long mode (E06)
+
+```
+make a20     # the A20 line: on, off (port 0x92), on
+make pm      # 32-bit protected mode: GDT, CR0.PE, far jump
+make lm      # 64-bit long mode from one boot sector
+make modes   # CR0, CR3, CR4, EFER of each sector (QEMU monitor)
+make room    # bytes used of the 510 in each boot sector
+```
+
 ## Run
 
 ```
