@@ -1,6 +1,6 @@
 # E06: Into Protected and Long Mode: Why We Need a Real Bootloader
 
-Video: VIDEO_LINK_PLACEHOLDER
+Video: https://youtu.be/veYVexuV4NI
 
 ## E05 solution
 Physical address = segment x 16 + offset:
