@@ -1,6 +1,6 @@
 # E07: Loading More Than 512 Bytes: INT 13h, CHS and LBA
 
-Video: VIDEO_LINK_PLACEHOLDER
+Video: https://youtu.be/EwKaDoHeVNk
 
 ## E06 solution
 1. Selector = entry number x 8, so entry 3 is 3 x 8 = 24 = 0x18.
