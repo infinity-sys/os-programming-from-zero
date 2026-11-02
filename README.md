@@ -66,6 +66,20 @@ make modes   # CR0, CR3, CR4, EFER of each sector (QEMU monitor)
 make room    # bytes used of the 510 in each boot sector
 ```
 
+## Loading more than 512 bytes (E07)
+
+```
+make disk        # build/disk.img: stage 1 at LBA 0, stage 2 at LBA 1 to 8 (dd)
+make sectors     # xxd of LBA 0, 1, 8 and 9
+make stage2      # boot it: stage 1 reads stage 2 with int 0x13 AH=0x42 (LBA)
+make chs         # the same with the old CHS read, AH=0x02
+make short       # stage 1 reads only 4 of the 8 sectors
+make diskerr     # a disk with no sector 1: carry set, AH = error code
+make lba2chs LBA=63   # the LBA to CHS formula (HPC=16, SPT=63)
+make gdb-stage2  # GDB stops at 0x7E00, the first byte of stage 2
+```
+New tools: `sudo apt install gdb xxd` (tested on Ubuntu 24.04 with NASM 2.16.01, QEMU 8.2.2, GDB 15.1).
+
 ## Run
 
 ```

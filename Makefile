@@ -182,3 +182,72 @@ clean:
 	rm -rf build
 
 .PHONY: run run-nographic tools toolcheck docker-build docker-shell poweron firmware memdump nosig uefi listing disasm size hello screen noorg clean addr segs ivt keys a20 pm lm modes room
+
+# ---- E07: loading more than 512 bytes (INT 13h, CHS and LBA) ----
+# a 1 MiB disk image
+DISK_SECTORS ?= 2048
+LBA ?= 8
+# heads per cylinder, sectors per track (QEMU's BIOS, see make stage2)
+HPC ?= 16
+SPT ?= 63
+
+build/stage1.bin: boot/stage1.asm
+	@mkdir -p build
+	@$(NASM) -f bin $< -l build/stage1.lst -o $@
+
+build/stage1-chs.bin: boot/stage1.asm
+	@mkdir -p build
+	@$(NASM) -DUSE_CHS -f bin $< -o $@
+
+build/stage1-half.bin: boot/stage1.asm
+	@mkdir -p build
+	@$(NASM) -DSTAGE2_SECTORS=4 -f bin $< -o $@
+
+# sector 0 = stage 1, sectors 1 to 8 = stage 2, the rest zeros
+build/disk.img: build/stage1.bin build/stage2.bin
+	dd if=/dev/zero of=$@ bs=512 count=$(DISK_SECTORS) status=none
+	dd if=build/stage1.bin of=$@ conv=notrunc status=none
+	dd if=build/stage2.bin of=$@ bs=512 seek=1 conv=notrunc status=none
+
+build/disk-%.img: build/stage1-%.bin build/disk.img
+	cp build/disk.img $@
+	dd if=$< of=$@ conv=notrunc status=none
+
+disk: build/disk.img
+	@ls -l build/stage1.bin build/stage2.bin build/disk.img | awk '{print $$5, $$9}'
+
+# boot the two-stage disk (LBA read, AH=0x42)
+stage2: build/disk.img
+	@$(QEMU) -display none -drive format=raw,file=build/disk.img -serial stdio 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+
+# the same disk, stage 1 built with the old CHS read (AH=0x02)
+chs: build/disk-chs.img
+	@$(QEMU) -display none -drive format=raw,file=build/disk-chs.img -serial stdio 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+
+# stage 1 reads only 4 of the 8 sectors
+short: build/disk-half.img
+	@$(QEMU) -display none -drive format=raw,file=build/disk-half.img -serial stdio 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+
+# a "disk" that is only the boot sector: the read fails, carry set, AH = error code
+diskerr: build/stage1.bin
+	@$(QEMU) -display none -drive format=raw,file=build/stage1.bin -serial stdio 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+
+# look at the sectors in the image
+sectors: build/disk.img
+	@echo "-- LBA 0, last 16 bytes (the 55 AA signature)"; xxd -s 496 -l 16 build/disk.img
+	@echo "-- LBA 1, first 16 bytes (stage 2 starts)";    xxd -s 512 -l 16 build/disk.img
+	@echo "-- LBA 8, last 16 bytes (END!)";               xxd -s 4592 -l 16 build/disk.img
+	@echo "-- LBA 9, first 16 bytes (empty)";             xxd -s 4608 -l 16 build/disk.img
+
+# LBA -> CHS: C = LBA / (HPC x SPT), H = (LBA / SPT) mod HPC, S = (LBA mod SPT) + 1
+lba2chs:
+	@echo "LBA $(LBA) -> C=$$(( $(LBA) / ($(HPC) * $(SPT)) )) H=$$(( ($(LBA) / $(SPT)) % $(HPC) )) S=$$(( $(LBA) % $(SPT) + 1 ))  (HPC=$(HPC), SPT=$(SPT))"
+
+# stop at the first instruction of stage 2 and look around with GDB
+gdb-stage2: build/disk.img
+	@qemu-system-i386 -display none -drive format=raw,file=build/disk.img -s -S 2>/dev/null & pid=$$!; sleep 1; \
+	gdb -q -batch -ex 'target remote localhost:1234' -ex 'set architecture i8086' -ex 'break *0x7e00' -ex 'continue' \
+	  -ex 'info registers cs eip edx esp' -ex 'x/8xb 0x7e00' -ex 'x/4cb 0x8dfc' 2>&1 | grep -v -e warning -e '^$$' -e Inferior -e 'Remote debugging' -e 'determining executable' ; kill $$pid
+
+.PHONY: disk stage2 chs short diskerr sectors lba2chs gdb-stage2
+
