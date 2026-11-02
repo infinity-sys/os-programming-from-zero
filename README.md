@@ -80,6 +80,16 @@ make gdb-stage2  # GDB stops at 0x7E00, the first byte of stage 2
 ```
 New tools: `sudo apt install gdb xxd` (tested on Ubuntu 24.04 with NASM 2.16.01, QEMU 8.2.2, GDB 15.1).
 
+## The GDT in depth (E08)
+
+```
+make gdt                         # stage 2 loads a 3-entry GDT; sgdt prints limit 0x0017, base 0x00007E98
+make gdt-bytes                   # the 24 bytes of the table (xxd)
+make desc D=0x00CF9A000000FFFF   # decode one descriptor
+make selector SEL=0x10           # index, TI and RPL of a selector
+make gdb-gdt                     # GDB: the table in memory and GDTR after lgdt
+```
+
 ## Run
 
 ```

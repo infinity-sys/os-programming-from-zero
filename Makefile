@@ -251,3 +251,44 @@ gdb-stage2: build/disk.img
 
 .PHONY: disk stage2 chs short diskerr sectors lba2chs gdb-stage2
 
+# ---- E08: the GDT in depth ----
+# stage 1 from E07, stage 2 = boot/stage2_gdt.asm (a hand-written GDT, lgdt, sgdt)
+build/disk-gdt.img: build/stage1.bin build/stage2_gdt.bin
+	dd if=/dev/zero of=$@ bs=512 count=$(DISK_SECTORS) status=none
+	dd if=build/stage1.bin of=$@ conv=notrunc status=none
+	dd if=build/stage2_gdt.bin of=$@ bs=512 seek=1 conv=notrunc status=none
+
+gdt: build/disk-gdt.img
+	@$(QEMU) -display none -drive format=raw,file=build/disk-gdt.img -serial stdio 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+
+# the 24 bytes of the table as the assembler wrote them
+gdt-bytes: build/stage2_gdt.bin
+	@off=$$((0x$$(awk '/gdt_null:/ {print $$2; exit}' build/stage2_gdt.lst))); \
+	printf 'gdt at file offset 0x%X = address 0x%X\n' $$off $$((0x7E00 + off)); \
+	xxd -g 8 -e -s $$off -l 24 build/stage2_gdt.bin
+
+# decode one descriptor: make desc D=0x00CF9A000000FFFF
+D ?= 0x00CF9A000000FFFF
+desc:
+	@d=$$(( $(D) )); \
+	base=$$(( (d >> 16 & 0xFFFFFF) | (d >> 32 & 0xFF000000) )); \
+	limit=$$(( (d & 0xFFFF) | (d >> 32 & 0xF0000) )); \
+	acc=$$(( d >> 40 & 0xFF )); fl=$$(( d >> 52 & 0xF )); \
+	printf 'base=0x%08X limit=0x%05X access=0x%02X flags=0x%X\n' $$base $$limit $$acc $$fl; \
+	printf 'P=%d DPL=%d S=%d type=0x%X  G=%d D/B=%d L=%d AVL=%d\n' $$((acc>>7&1)) $$((acc>>5&3)) $$((acc>>4&1)) $$((acc&15)) $$((fl>>3&1)) $$((fl>>2&1)) $$((fl>>1&1)) $$((fl&1)); \
+	if [ $$((fl>>3&1)) = 1 ]; then printf 'size = (0x%X + 1) x 4096 = %d bytes\n' $$limit $$(( (limit+1)*4096 )); else printf 'size = 0x%X + 1 = %d bytes\n' $$limit $$((limit+1)); fi
+
+# split a selector: make selector SEL=0x10
+SEL ?= 0x10
+selector:
+	@s=$$(( $(SEL) )); printf 'selector 0x%04X -> index=%d TI=%d (%s) RPL=%d\n' $$s $$((s>>3)) $$((s>>2&1)) $$( [ $$((s>>2&1)) = 1 ] && echo LDT || echo GDT ) $$((s&3))
+
+# stop at the hlt after lgdt and look at the table and GDTR with GDB
+gdb-gdt: build/disk-gdt.img
+	@halt=$$(printf '0x%X' $$((0x7E00 + 0x$$(awk '$$3=="F4" {print $$2; exit}' build/stage2_gdt.lst)))); \
+	gdt=$$(printf '0x%X' $$((0x7E00 + 0x$$(awk '/gdt_null:/ {print $$2; exit}' build/stage2_gdt.lst)))); \
+	qemu-system-i386 -display none -drive format=raw,file=build/disk-gdt.img -s -S 2>/dev/null & pid=$$!; sleep 1; \
+	gdb -q -batch -ex 'target remote localhost:1234' -ex "hbreak *$$halt" -ex 'continue' \
+	  -ex "x/3gx $$gdt" -ex 'monitor info registers' 2>&1 | grep -e '^0x7' -e '^GDT' -e '^CS ' -e '^CR0' ; kill $$pid
+
+.PHONY: gdt gdt-bytes desc selector gdb-gdt
