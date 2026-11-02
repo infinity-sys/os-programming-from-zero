@@ -90,6 +90,15 @@ make selector SEL=0x10           # index, TI and RPL of a selector
 make gdb-gdt                     # GDB: the table in memory and GDTR after lgdt
 ```
 
+## Protected mode, properly (E09)
+
+```
+make pm2          # A20, lgdt, CR0.PE=1, far jump; 32-bit code prints CR0, ESP, CS
+make pm2-screen   # the VGA text screen after the switch (build/pm2.ppm)
+make triple       # a bad selector with no IDT: #GP, double fault, triple fault
+make gdb-pm       # GDB: registers right after the far jump
+```
+
 ## Run
 
 ```

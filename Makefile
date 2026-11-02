@@ -292,3 +292,41 @@ gdb-gdt: build/disk-gdt.img
 	  -ex "x/3gx $$gdt" -ex 'monitor info registers' 2>&1 | grep -e '^0x7' -e '^GDT' -e '^CS ' -e '^CR0' ; kill $$pid
 
 .PHONY: gdt gdt-bytes desc selector gdb-gdt
+
+# ---- E09: protected mode, properly ----
+build/stage2_pm-triple.bin: boot/stage2_pm.asm
+	@mkdir -p build
+	@$(NASM) -DTRIPLE -f bin $< -o $@
+
+build/disk-pm.img: build/stage1.bin build/stage2_pm.bin
+	dd if=/dev/zero of=$@ bs=512 count=$(DISK_SECTORS) status=none
+	dd if=build/stage1.bin of=$@ conv=notrunc status=none
+	dd if=build/stage2_pm.bin of=$@ bs=512 seek=1 conv=notrunc status=none
+
+build/disk-triple.img: build/stage1.bin build/stage2_pm-triple.bin
+	dd if=/dev/zero of=$@ bs=512 count=$(DISK_SECTORS) status=none
+	dd if=build/stage1.bin of=$@ conv=notrunc status=none
+	dd if=build/stage2_pm-triple.bin of=$@ bs=512 seek=1 conv=notrunc status=none
+
+pm2: build/disk-pm.img
+	@$(QEMU) -display none -drive format=raw,file=build/disk-pm.img -serial stdio 2>/dev/null & pid=$$!; sleep $(SECS); kill $$pid
+
+# the VGA text screen after the switch, saved as an image
+pm2-screen: build/disk-pm.img
+	@(sleep $(SECS); printf 'screendump build/pm2.ppm\nquit\n') | $(QEMU) -display none -monitor stdio -drive format=raw,file=build/disk-pm.img 2>/dev/null >/dev/null
+	@echo "screen saved: build/pm2.ppm"
+
+# a bad selector in protected mode with no IDT: #GP -> double fault -> triple fault -> reset
+# -no-reboot stops QEMU at the reset instead of booting again
+triple: build/disk-triple.img
+	@$(QEMU) -display none -no-reboot -d int,cpu_reset -drive format=raw,file=build/disk-triple.img -serial stdio 2>build/triple.log; \
+	grep -E 'check_exception|Triple fault|^CPU Reset' build/triple.log | tail -n 5
+
+# registers right after the far jump
+gdb-pm: build/disk-pm.img
+	@pm=$$(printf '0x%X' $$((0x7E00 + 0x$$(awk '/pm32:/ {f=1; next} f && $$2 ~ /^[0-9A-F]+$$/ {print $$2; exit}' build/stage2_pm.lst)))); \
+	qemu-system-i386 -display none -drive format=raw,file=build/disk-pm.img -s -S 2>/dev/null & pid=$$!; sleep 1; \
+	gdb -q -batch -ex 'target remote localhost:1234' -ex "hbreak *$$pm" -ex 'continue' \
+	  -ex 'monitor info registers' 2>&1 | grep -e '^EIP' -e '^CS ' -e '^DS ' -e '^SS ' -e '^GDT' -e '^CR0' ; kill $$pid
+
+.PHONY: pm2 pm2-screen triple gdb-pm
